@@ -1,0 +1,754 @@
+.model small
+.stack 100h
+
+.data
+
+linefeed db 13, 10, "$"
+matrix dw 3 dup (3 dup (0)) ; 3 x 3 array
+
+;;data for a
+msg db 'Enter a number between 1 and 3: $'
+input db 0
+sum dw 0
+
+;;data for b
+max dw 0
+
+;;data for c
+left_diagonal dw 0
+
+;;data for d
+
+matrix_t dw 3 dup (3 dup (0)) ; 3 x 3 array
+
+;;data for e
+
+t_counter dw 0
+b_counter dw 0
+r_counter dw 0
+
+matrix_b dw 3 dup (3 dup (0)) ; 3 x 3 array
+matrix_r dw 3 dup (3 dup (0)) ; 3 x 3 array
+
+var dw 0
+
+.code
+
+my_wait PROC
+    push cx
+    mov cx , 65535
+    wait_loop:
+    
+    loop wait_loop
+    pop cx
+    ret
+my_wait ENDP
+
+newline PROC
+    mov ah, 09
+    mov dx, offset linefeed
+    int 21h
+    ret
+newline ENDP
+
+space PROC
+    mov dl, 32
+    mov ah,02h
+    int 21h
+    ret
+space ENDP
+
+PRINT PROC           
+     
+    ;initialize count
+    mov cx,0
+    mov dx,0
+    label1:
+        ; if ax is zero
+        cmp ax,0
+        je print1      
+         
+        ;initialize bx to 10
+        mov bx,10        
+         
+        ; extract the last digit
+        div bx                  
+         
+        ;push it in the stack
+        push dx              
+         
+        ;increment the count
+        inc cx              
+         
+        ;set dx to 0 
+        xor dx,dx
+        jmp label1
+    print1:
+        ;check if count 
+        ;is greater than zero
+        cmp cx,0
+        je exit
+         
+        ;pop the top of stack
+        pop dx
+         
+        ;add 48 so that it 
+        ;represents the ASCII
+        ;value of digits
+        add dx,48
+         
+        ;interrupt to print a
+        ;character
+        mov ah,02h
+        int 21h
+         
+        ;decrease the count
+        dec cx
+        jmp print1
+exit:
+ret
+PRINT ENDP
+
+main Proc
+    mov ax, @data
+    mov ds, ax
+
+    mov cx, 9 ; for 9 elements of 3 x 3 matrix
+    
+    mov si, offset matrix
+    mov di, offset matrix
+
+    l1:
+
+        push cx
+
+        mov ah, 2Ch     ;random numbers
+        int 21h         
+
+        pop cx
+
+        xor ax, ax      
+        mov ax, dx      
+        xor dx, dx      
+
+        mov [di], al   
+
+        add di, 2
+
+        call my_wait
+
+    loop l1
+
+    ; ---------------------------------- PART A, B ----------------------------------
+
+    mov ah, 09h     ;DISPLAY MSG
+    mov dx, offset msg  
+    int 21h
+
+    mov ah, 01h ; taking input
+    int 21h
+    mov bl, al  
+    sub bl, '0' ; converting ascii
+    mov input, bl ; storing input
+ 
+    mov di, si
+
+    cmp input, 1
+    jne skip1
+        add di, 0
+        jmp next
+    skip1:
+
+    cmp input, 2
+    jne skip2
+        add di, 6
+        jmp next
+    skip2:
+
+    cmp input, 3
+    jne skip3
+        add di, 12
+        jmp next
+    skip3:
+
+    next:
+
+    ; addition and finding max
+    mov cx, 3
+    l2:
+        mov ax, [di]
+       
+        ; addition
+        add sum, ax
+
+        ; find max
+        cmp ax, max
+        jl maxing
+            mov max, ax
+        maxing:
+
+        add di, 2
+    loop l2
+
+    ; ----------------------------------  PART C.  ----------------------------------
+
+    ; calculate left diagonal
+
+    mov di, si
+    mov cx, 3
+
+    l3:
+
+        mov ax, [di]
+        add left_diagonal, ax
+        add di, 8
+    
+    loop l3
+
+    ; ----------------------------------  PART D.  ----------------------------------
+
+    ;take transpose
+
+    mov di, offset matrix_t
+
+    mov cx, 3
+    l4:
+        mov ax, [si]
+        mov [di], ax
+        add si, 6
+        add di, 2
+    loop l4
+
+    mov si, offset matrix
+    add si, 2
+
+    mov cx, 3
+    l5:
+        mov ax, [si]
+        mov [di], ax    
+        add si, 6
+        add di, 2
+    loop l5
+
+    mov si, offset matrix
+    add si, 4
+
+    mov cx, 3
+    l6:
+        mov ax, [si]
+        mov [di], ax
+        add si, 6
+        add di, 2
+    loop l6
+
+
+    ; ----------------------------------new matrix.----------------------------------
+
+    mov cx, 9
+    mov di, offset matrix_b
+
+    l7:
+
+        push cx
+
+        mov ah, 2Ch     ;random numbers
+        int 21h         
+
+        pop cx
+
+        xor ax, ax      
+        mov ax, dx      
+        xor dx, dx      
+
+        mov [di], al   
+
+        add di, 2
+
+        call my_wait
+
+    loop l7
+
+    ; ----------------------------------  PART E.  ----------------------------------
+    
+    ; -------------------------------------------------------------------------------
+    ; NOTE : matrix * matrix_b is done using matrix_t(transpose of matrix)
+    ; -------------------------------------------------------------------------------
+
+    mov t_counter, 0
+    mov b_counter, 0    
+    mov r_counter, 0
+
+    ;-----------START-----------
+
+    ; ---------------- 1st row ----------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l8:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l8
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l9:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l9
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l10:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l10
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+    
+    add t_counter, 2
+    mov b_counter, 0
+
+    ; ---------------- 2nd row ----------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l11:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l11
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l12:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l12
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l13:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l13
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+    
+    add t_counter, 2
+    mov b_counter, 0
+
+
+    ; ---------------- 3rd row ----------------
+
+    
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l14:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l14
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l15:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l15
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+
+
+    mov var, 0
+    mov si, offset matrix_t
+    mov di, offset matrix_b
+
+    add si, t_counter
+    add di, b_counter
+
+    mov cx,3
+    l16:
+        mov ax, [si]
+        mov bx, [di]
+        mul bx
+        add var, ax
+
+        add si, 6
+        add di, 6
+    loop l16
+
+    mov ax, var
+    mov si, offset matrix_r
+    add si, r_counter
+    mov [si], ax
+
+    add r_counter, 2
+    add b_counter, 2
+
+
+    ;------------------
+    
+    add t_counter, 2
+    mov b_counter, 0
+
+
+
+    ; ----------------------------------    END    ----------------------------------
+
+    call newline
+    call newline
+
+    mov ax, sum
+    call PRINT
+    
+    call newline
+    call newline
+
+    mov ax, max
+    call PRINT
+
+    call newline
+    call newline
+
+    mov si, offset matrix
+
+    mov cx, 3
+    m1_1:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_1
+    call newline
+
+    mov cx, 3
+    m1_2:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_2
+    call newline
+
+    mov cx, 3
+    m1_3:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_3
+    call newline
+
+
+
+    call newline
+
+
+
+
+
+    mov si, offset matrix_t
+
+    mov cx, 3
+    m1_1_t:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_1_t
+    call newline
+
+    mov cx, 3
+    m1_2_t:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_2_t
+    call newline
+
+    mov cx, 3
+    m1_3_t:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m1_3_t
+    call newline
+
+
+
+    call newline
+
+
+
+    mov si, offset matrix_b
+
+    mov cx, 3
+    m2_1:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m2_1
+    call newline
+
+    mov cx, 3
+    m2_2:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m2_2
+    call newline
+
+    mov cx, 3
+    m2_3:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m2_3
+    call newline
+
+    call newline
+
+
+    mov si, offset matrix_r
+
+    mov cx, 3
+    m3_1:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m3_1
+    call newline
+
+    mov cx, 3
+    m3_2:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m3_2
+    call newline
+
+    mov cx, 3
+    m3_3:
+        mov ax, [si]
+        add si, 2
+        push cx
+        call PRINT
+        call space
+        pop cx
+    loop m3_3
+    call newline
+
+
+    call newline
+
+
+    mov ax, 4C00h  ; Exit with code 0
+    int 21h
+
+main ENDP
+end main
